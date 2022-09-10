@@ -47,7 +47,7 @@ class Clipboard(ABC):
         pass
 
     @abstractmethod
-    def copy(self, data, fmt: ClipboardFormat = ClipboardFormat.TEXT) -> None:
+    def copy(self, data, fmt: ClipboardFormat = ...) -> None:
         """
         Copy data to clipboard
         """

@@ -1,13 +1,11 @@
 import os
 import subprocess
 from abc import ABC
-from io import BytesIO
-from typing import Any, cast
-
-from PIL import Image
+from typing import Any
 
 from clipboard import ClipboardFormat, Clipboard, Platform
 from jqboard.error import raise_format_error, ClipboardError
+from jqboard._generic_clipboard import format_output, format_input, guess_format
 
 _FORMAT_TO_STR = {
     ClipboardFormat.TEXT: "text/plain",
@@ -17,27 +15,12 @@ _FORMAT_TO_STR = {
 _STR_TO_FORMAT = {v: k for k, v in _FORMAT_TO_STR.items()}
 
 
-def _format_output(data: bytes, fmt: ClipboardFormat) -> Any:
-    match fmt:
-        case ClipboardFormat.TEXT | ClipboardFormat.HTML:
-            return data.decode("utf-8")
-        case ClipboardFormat.IMAGE:
-            return Image.open(BytesIO(data))
-
-
-def _format_input(data: Any, fmt: ClipboardFormat) -> bytes:
-    match fmt:
-        case ClipboardFormat.TEXT | ClipboardFormat.HTML:
-            return data.encode("utf-8")
-        case ClipboardFormat.IMAGE:
-            cast(Image.Image, data).save(buf := BytesIO(), "PNG")
-            return buf.getvalue()
-
-
 class WaylandClipboard(Clipboard):
-    def copy(self, data, fmt: ClipboardFormat = ClipboardFormat.TEXT) -> None:
+    def copy(self, data, fmt: ClipboardFormat = ...) -> None:
+        if fmt is ...:
+            fmt = guess_format(data)
         try:
-            subprocess.run(["wl-copy", "-t", _FORMAT_TO_STR[fmt]], input=_format_input(data, fmt), check=True)
+            subprocess.run(["wl-copy", "-t", _FORMAT_TO_STR[fmt]], input=format_input(data, fmt), check=True)
         except subprocess.CalledProcessError as e:
             raise ClipboardError("Failed to copy to clipboard") from e
 
@@ -47,7 +30,7 @@ class WaylandClipboard(Clipboard):
         try:
             data = subprocess.run(["wl-paste", "-t", _FORMAT_TO_STR[fmt]], capture_output=True, check=True,
                                   stdout=subprocess.PIPE).stdout
-            return _format_output(data, fmt)
+            return format_output(data, fmt)
         except subprocess.CalledProcessError as e:
             raise ClipboardError("Failed to paste from clipboard") from e
 
@@ -71,10 +54,12 @@ class X11Clipboard(Clipboard):
         except subprocess.CalledProcessError as e:
             raise ClipboardError("Failed to list formats") from e
 
-    def copy(self, data, fmt: ClipboardFormat = ClipboardFormat.TEXT) -> None:
+    def copy(self, data, fmt: ClipboardFormat = ...) -> None:
+        if fmt is ...:
+            fmt = guess_format(data)
         try:
             subprocess.run(["xclip", "-selection", "clipboard", "-t", _FORMAT_TO_STR[fmt]],
-                           input=_format_input(data, fmt),
+                           input=format_input(data, fmt),
                            check=True)
         except subprocess.CalledProcessError as e:
             raise ClipboardError("Failed to copy to clipboard") from e
@@ -85,7 +70,7 @@ class X11Clipboard(Clipboard):
         try:
             data = subprocess.run(["xclip", "-selection", "clipboard", "-t", _FORMAT_TO_STR[fmt], "-o"],
                                   capture_output=True, check=True, stdout=subprocess.PIPE)
-            return _format_output(data.stdout, fmt)
+            return format_output(data.stdout, fmt)
         except subprocess.CalledProcessError as e:
             raise ClipboardError("Failed to paste from clipboard") from e
 

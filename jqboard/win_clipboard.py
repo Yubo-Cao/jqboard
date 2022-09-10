@@ -9,6 +9,7 @@ import win32clipboard as clip
 from PIL import Image
 from lxml import etree
 
+from jqboard._generic_clipboard import guess_format
 from jqboard.clipboard import ClipboardFormat, Clipboard, Platform
 from jqboard.error import ClipboardNotHTML, ClipboardError, ClipboardNotText, ClipboardNotImage, raise_format_error
 
@@ -247,7 +248,9 @@ class WindowsClipboard(Clipboard):
             if fmt in _INT_TO_FORMAT
         ]
 
-    def copy(self, data, fmt: ClipboardFormat = ClipboardFormat.TEXT) -> None:
+    def copy(self, data, fmt: ClipboardFormat = ...) -> None:
+        if fmt is ...:
+            fmt = guess_format(data)
         match fmt:
             case ClipboardFormat.TEXT:
                 _set_text(data)

@@ -7,9 +7,8 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-klembord = "^0.3.0"
-lxml = {version = "^4.9.1", optional = true}
-pywin32 = "^304"
+lxml = "^4.9.1"
+pywin32 = {version = "^304", platform="windows"}
 Pillow = "^9.2.0"
 
 [tool.poetry.group.dev.dependencies]

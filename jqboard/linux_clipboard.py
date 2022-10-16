@@ -4,8 +4,8 @@ from abc import ABC
 from typing import Any
 
 from clipboard import ClipboardFormat, Clipboard, Platform
-from jqboard.error import raise_format_error, ClipboardError
 from jqboard._generic_clipboard import format_output, format_input, guess_format
+from jqboard.error import raise_format_error, ClipboardError
 
 _FORMAT_TO_STR = {
     ClipboardFormat.TEXT: "text/plain",

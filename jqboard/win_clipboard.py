@@ -11,7 +11,7 @@ from lxml import etree
 
 from jqboard._generic_clipboard import guess_format
 from jqboard.clipboard import ClipboardFormat, Clipboard, Platform
-from jqboard.error import ClipboardNotHTML, ClipboardError, ClipboardNotText, ClipboardNotImage, raise_format_error
+from jqboard.error import ClipboardError, raise_format_error
 
 
 def _clipboard_manger_gen():
@@ -75,6 +75,7 @@ def _set_clipboard(data, fmt: ClipboardFormat):
         pass
     raise ClipboardError(f"Unable to set clipboard data '{fmt}'")
 
+
 @_clipboard
 def _get_clipboard(fmt: ClipboardFormat) -> Any:
     try:
@@ -82,6 +83,7 @@ def _get_clipboard(fmt: ClipboardFormat) -> Any:
     except:
         pass
     raise_format_error(fmt)
+
 
 @_clipboard
 def _get_formats() -> List[int]:

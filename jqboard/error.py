@@ -45,10 +45,9 @@ class ClipboardNotHTML(ClipboardError):
 
 
 def raise_format_error(fmt: ClipboardFormat) -> None:
-    match fmt:
-        case ClipboardFormat.TEXT:
-            raise ClipboardNotText()
-        case ClipboardFormat.IMAGE:
-            raise ClipboardNotImage()
-        case ClipboardFormat.HTML:
-            raise ClipboardNotHTML()
+    if fmt == ClipboardFormat.TEXT:
+        raise ClipboardNotText()
+    elif fmt == ClipboardFormat.IMAGE:
+        raise ClipboardNotImage()
+    elif fmt == ClipboardFormat.HTML:
+        raise ClipboardNotHTML()

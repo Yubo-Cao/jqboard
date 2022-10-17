@@ -1,30 +1,35 @@
 from io import BytesIO
-from typing import Any, cast, Optional
+from typing import Any
 
-from PIL import Image
 from lxml import etree
+from PIL import Image
 
 from jqboard import ClipboardFormat
 
 
 def format_output(data: bytes, fmt: ClipboardFormat) -> Any:
-    match fmt:
-        case ClipboardFormat.TEXT | ClipboardFormat.HTML:
-            return data.decode("utf-8")
-        case ClipboardFormat.IMAGE:
-            return Image.open(BytesIO(data))
+    if fmt == ClipboardFormat.TEXT or fmt == ClipboardFormat.HTML:
+        return data.decode("utf-8")
+    elif fmt == ClipboardFormat.IMAGE:
+        return Image.open(BytesIO(data))
+    else:
+        raise ValueError("Invalid format")
 
 
 def format_input(data: Any, fmt: ClipboardFormat) -> bytes:
-    match fmt:
-        case ClipboardFormat.TEXT | ClipboardFormat.HTML:
-            return data.encode("utf-8")
-        case ClipboardFormat.IMAGE:
-            cast(Image.Image, data).save(buf := BytesIO(), "PNG")
-            return buf.getvalue()
+    if fmt == ClipboardFormat.TEXT or fmt == ClipboardFormat.HTML:
+        return data.encode("utf-8")
+    elif fmt == ClipboardFormat.IMAGE:
+        buf = BytesIO()
+        data.save(buf, "PNG")
+        return buf.getvalue()
+    else:
+        raise ValueError("Invalid format")
 
 
-def guess_format(data: Any, default_fmt: ClipboardFormat = ClipboardFormat.TEXT) -> ClipboardFormat:
+def guess_format(
+    data: Any, default_fmt: ClipboardFormat = ClipboardFormat.TEXT
+) -> ClipboardFormat:
     if isinstance(data, str):
         try:
             etree.XML(data)

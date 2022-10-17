@@ -3,7 +3,7 @@ from collections.abc import Callable
 from contextlib import contextmanager
 from functools import wraps
 from io import BytesIO
-from typing import List, Dict, Literal, Tuple, Any
+from typing import List, Dict, Literal, Tuple, Any, Union
 
 import win32clipboard as clip
 from PIL import Image
@@ -20,6 +20,7 @@ def _clipboard_manger_gen():
     def clipboard(fn=None):
         nonlocal clipboard_opened
         if isinstance(fn, Callable):
+
             @wraps(fn)
             def decorator(*args, **kwargs):
                 nonlocal clipboard_opened
@@ -31,6 +32,7 @@ def _clipboard_manger_gen():
 
             return decorator
         else:
+
             @contextmanager
             def manager():
                 nonlocal clipboard_opened
@@ -53,18 +55,18 @@ _clipboard = _clipboard_manger_gen()
 
 @_clipboard
 def _html_format() -> int:
-    return clip.RegisterClipboardFormat('HTML Format')
+    return clip.RegisterClipboardFormat("HTML Format")
 
 
 _FORMAT_TO_INT = {
     ClipboardFormat.TEXT: clip.CF_UNICODETEXT,
     ClipboardFormat.IMAGE: clip.CF_DIB,
-    ClipboardFormat.HTML: _html_format()
+    ClipboardFormat.HTML: _html_format(),
 }
 
 _INT_TO_FORMAT = {v: k for k, v in _FORMAT_TO_INT.items()}
 
-_predefined_type = {v: k for k, v in vars(clip).items() if k.startswith('CF_')}
+_predefined_type = {v: k for k, v in vars(clip).items() if k.startswith("CF_")}
 
 
 @_clipboard
@@ -113,7 +115,9 @@ def _get_formats_name(formats: List[int] = ...) -> List[str]:
     return [_get_format_name(fmt) for fmt in formats]
 
 
-def _parser_gen(regex: str, flags: re.RegexFlag = re.MULTILINE | re.VERBOSE) -> Callable[[str], Dict[str, str]]:
+def _parser_gen(
+    regex: str, flags: re.RegexFlag = re.MULTILINE | re.VERBOSE
+) -> Callable[[str], Dict[str, str]]:
     regex = re.compile(regex, flags)
 
     def parser(string):
@@ -141,27 +145,30 @@ _parse_html: Callable[[str], Dict[str, str]] = _parser_gen(
 
 
 def _get_html(content: Literal["fragment", "select", "html", "raw"] = "html") -> str:
-    data = _get_clipboard(ClipboardFormat.HTML).decode('utf-8').strip('\x00')
+    data = _get_clipboard(ClipboardFormat.HTML).decode("utf-8").strip("\x00")
     parse = _parse_html(data)
     try:
-        match content:
-            case "html":
-                return data[int(parse['start_html']): int(parse['end_html'])]
-            case "select":
-                return data[int(parse['start_selection']): int(parse['end_selection'])]
-            case "fragment":
-                return data[int(parse['start_fragment']): int(parse['end_fragment'])]
-            case "raw":
-                return data
-            case _:
-                raise ValueError("Invalid content type")
+        if content == "html":
+            return data[int(parse["start_html"]) : int(parse["end_html"])]
+        elif content == "select":
+            return data[int(parse["start_selection"]) : int(parse["end_selection"])]
+        elif content == "fragment":
+            return data[int(parse["start_fragment"]) : int(parse["end_fragment"])]
+        elif content == "raw":
+            return data
+        else:
+            raise ValueError("Invalid content type")
     except AttributeError:
         raise ClipboardError("Content type does not exists")
 
 
 @_clipboard
-def _set_html(fragment: str, select: str | Tuple[int, int] = "", context: str = "",
-              url: str = "file:///jqboard") -> None:
+def _set_html(
+    fragment: str,
+    select: Union[str, Tuple[int, int]] = "",
+    context: str = "",
+    url: str = "file:///jqboard",
+) -> None:
     try:
         if isinstance(select, str):
             select_start = fragment.index(select)
@@ -169,38 +176,51 @@ def _set_html(fragment: str, select: str | Tuple[int, int] = "", context: str = 
         else:
             select_start, select_end = select
     except (AttributeError, ValueError):
-        raise ValueError("'select' argument is invalid. It should be a tuple or string that contained in fragment.")
+        raise ValueError(
+            "'select' argument is invalid. It should be a tuple or string that contained in fragment."
+        )
 
     try:
-        context = context or f"<html><body><!--StartFragment-->{fragment}<!--EndFragment--></body></html>"
+        context = (
+            context
+            or f"<html><body><!--StartFragment-->{fragment}<!--EndFragment--></body></html>"
+        )
         fragment_start = context.index(fragment)
         fragment_end = fragment_start + len(fragment)
     except ValueError:
         raise ValueError("'fragment' does not exists in context.")
 
     try:
-        text = ''.join(etree.HTML(context).itertext())
+        text = "".join(etree.HTML(context).itertext())
     except:
         raise ValueError("illegal html content.")
 
-    prefix_template = ("Version:1.0\r\n"
-                       "StartHTML:%09d\r\n"
-                       "EndHTML:%09d\r\n"
-                       "StartFragment:%09d\r\n"
-                       "EndFragment:%09d\r\n"
-                       "StartSelection:%09d\r\n"
-                       "EndSelection:%09d\r\n"
-                       "SourceURL:%s\r\n")
+    prefix_template = (
+        "Version:1.0\r\n"
+        "StartHTML:%09d\r\n"
+        "EndHTML:%09d\r\n"
+        "StartFragment:%09d\r\n"
+        "EndFragment:%09d\r\n"
+        "StartSelection:%09d\r\n"
+        "EndSelection:%09d\r\n"
+        "SourceURL:%s\r\n"
+    )
     prefix = prefix_template % (0, 0, 0, 0, 0, 0, url)
     prefix_len = len(prefix)
 
     prefix = prefix_template % (
-        prefix_len, prefix_len + len(context), prefix_len + fragment_start, prefix_len + fragment_end,
-        prefix_len + select_start, prefix_len + select_end, url)
+        prefix_len,
+        prefix_len + len(context),
+        prefix_len + fragment_start,
+        prefix_len + fragment_end,
+        prefix_len + select_start,
+        prefix_len + select_end,
+        url,
+    )
 
     data = prefix + context
     clip.EmptyClipboard()
-    _set_clipboard(data.encode('utf-8'), ClipboardFormat.HTML)
+    _set_clipboard(data.encode("utf-8"), ClipboardFormat.HTML)
     _set_clipboard(text, ClipboardFormat.TEXT)
 
 
@@ -208,7 +228,7 @@ def _set_html(fragment: str, select: str | Tuple[int, int] = "", context: str = 
 def _set_image(img: Image):
     clip.EmptyClipboard()
     with BytesIO() as data_buf:
-        img.convert('RGB').save(data_buf, 'BMP')
+        img.convert("RGB").save(data_buf, "BMP")
         data = data_buf.getvalue()[14:]
     _set_clipboard(data, ClipboardFormat.IMAGE)
 
@@ -234,29 +254,32 @@ def _get_text() -> str:
 class WindowsClipboard(Clipboard):
     platform = Platform.WINDOWS
 
-    def paste(self, fmt: ClipboardFormat = ClipboardFormat.TEXT,
-              content: Literal['fragment', 'select', 'html', 'raw'] = "fragment") -> Any:
-        match fmt:
-            case ClipboardFormat.TEXT:
-                return _get_text()
-            case ClipboardFormat.HTML:
-                return _get_html(content)
-            case ClipboardFormat.IMAGE:
-                return _get_image()
+    def paste(
+        self,
+        fmt: ClipboardFormat = ClipboardFormat.TEXT,
+        content: Literal["fragment", "select", "html", "raw"] = "fragment",
+    ) -> Any:
+
+        if fmt == ClipboardFormat.TEXT:
+            return _get_text()
+        elif fmt == ClipboardFormat.HTML:
+            return _get_html(content)
+        elif fmt == ClipboardFormat.IMAGE:
+            return _get_image()
+        else:
+            raise ValueError("Invalid format")
 
     def list(self) -> list[ClipboardFormat]:
-        return [
-            _INT_TO_FORMAT[fmt] for fmt in _get_formats()
-            if fmt in _INT_TO_FORMAT
-        ]
+        return [_INT_TO_FORMAT[fmt] for fmt in _get_formats() if fmt in _INT_TO_FORMAT]
 
     def copy(self, data, fmt: ClipboardFormat = ...) -> None:
         if fmt is ...:
             fmt = guess_format(data)
-        match fmt:
-            case ClipboardFormat.TEXT:
-                _set_text(data)
-            case ClipboardFormat.HTML:
-                _set_html(data)
-            case ClipboardFormat.IMAGE:
-                _set_image(data)
+        if fmt == ClipboardFormat.TEXT:
+            _set_text(data)
+        elif fmt == ClipboardFormat.HTML:
+            _set_html(data)
+        elif fmt == ClipboardFormat.IMAGE:
+            _set_image(data)
+        else:
+            raise ValueError("Invalid format")

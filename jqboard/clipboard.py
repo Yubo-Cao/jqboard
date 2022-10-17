@@ -32,15 +32,17 @@ class Clipboard(ABC):
 
     def __new__(cls, *args, **kwargs) -> "Clipboard":
         if cls is Clipboard:
-            match Platform.current():
-                case Platform.WINDOWS:
-                    from jqboard.win_clipboard import WindowsClipboard
-                    cls = WindowsClipboard
-                case Platform.LINUX:
-                    from jqboard.linux_clipboard import LinuxClipboard
-                    cls = LinuxClipboard
-                case _:
-                    raise NotImplementedError("Unsupported platform")
+            plat = Platform.current()
+            if plat == Platform.WINDOWS:
+                from jqboard.win_clipboard import WindowsClipboard
+
+                cls = WindowsClipboard
+            elif plat == Platform.LINUX:
+                from jqboard.linux_clipboard import LinuxClipboard
+
+                cls = LinuxClipboard
+            else:
+                raise NotImplementedError("Unsupported platform")
         return super().__new__(cls)
 
     def __init__(self, *args, **kwargs) -> None:
